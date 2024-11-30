@@ -11,7 +11,6 @@
 
 ## Features
 
-- **[Feature 1 Name]**: [Brief description of the feature and its key benefit.]
 - Create Files with Templates:
     Supports creating files with specific templates (e.g., Python, Shell script) using --template=py or -t sh.
 
