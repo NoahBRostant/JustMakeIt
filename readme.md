@@ -137,7 +137,7 @@ Where:
   ```
   ./file1.txt
   ./dir1/
-  file.py -t=py
+  file.py -t=py ** Currently not implemented **
   dir2/subdir/ --open
   ```
 
