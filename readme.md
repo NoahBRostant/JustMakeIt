@@ -1,6 +1,6 @@
 <div align="center">
    <img src="./assets/Group@4x.png" width="150px" alt="Project Logo" />
-    <h1>JustMakeIt</h1>
+    <h1>JustMakeIt (Linux)</h1>
 </div>
 
 ## Description
@@ -38,8 +38,8 @@
 - Handle Invalid Templates Gracefully:
     Provides clear error messages when invalid templates or commands are used.
 
-- Cross-Platform Compatibility:
-    Works across different systems (Linux, macOS, Windows) with tools like curl, winget, and dnf for distribution.
+- Open-Sourced-Software:
+    Feel free to copy, distrobute, or modify this script to your hearts content. This project is to better everyone... and having fun coding. [MIT License](LICENSE).
 
 <br>
 
