@@ -11,6 +11,8 @@ mk() {
     echo "  --template=TYPE    | -t    Create a file with a predefined template (e.g., sh, html)"
     echo "  --open             | -o    Open the created file or directory"
     echo "  --list=FILE               Create files and directories from a list"
+    echo "  --yes              | -y    Automatically overwrite all conflicting files/directories"
+    echo "  --no               | -n    Automatically skip all conflicting files/directories"
     return 1
   fi
 
@@ -21,6 +23,8 @@ mk() {
   template=""
   open_after_creation=false
   input=""
+  auto_overwrite=false
+  auto_skip=false
 
   # Parse arguments
   while [[ $# -gt 0 ]]; do
@@ -49,6 +53,14 @@ mk() {
           echo "Error: No list file provided"
           return 1
         fi
+        ;;
+      --yes|-y)
+        auto_overwrite=true
+        shift
+        ;;
+      --no|-n)
+        auto_skip=true
+        shift
         ;;
       *)
         # Assign the first non-option argument as the input
@@ -79,24 +91,32 @@ mk() {
 
       # Check if file or directory already exists
       if [[ -e "$line" ]]; then
-        while true; do
-          echo "$line already exists. Overwrite? (y/n)" > /dev/tty
-          read -r response < /dev/tty
-          case "$response" in
-            [Yy]*) 
-              echo "Overwriting $line..." > /dev/tty
-              rm -rf "$line"
-              break
-              ;;
-            [Nn]*) 
-              echo "Skipping $line..." > /dev/tty
-              continue 2
-              ;;
-            *) 
-              echo "Invalid response. Please enter 'y' or 'n'." > /dev/tty
-              ;;
-          esac
-        done
+        if [ "$auto_overwrite" = true ]; then
+          echo "Overwriting $line..." > /dev/tty
+          rm -rf "$line"
+        elif [ "$auto_skip" = true ]; then
+          echo "Skipping $line..." > /dev/tty
+          continue
+        else
+          while true; do
+            echo "$line already exists. Overwrite? (y/n)" > /dev/tty
+            read -r response < /dev/tty
+            case "$response" in
+              [Yy]*) 
+                echo "Overwriting $line..." > /dev/tty
+                rm -rf "$line"
+                break
+                ;;
+              [Nn]*) 
+                echo "Skipping $line..." > /dev/tty
+                continue 2
+                ;;
+              *) 
+                echo "Invalid response. Please enter 'y' or 'n'." > /dev/tty
+                ;;
+            esac
+          done
+        fi
       fi
 
       # Create the file or directory based on the list item
@@ -139,18 +159,26 @@ mk() {
 
   # Safety check for existing file or directory
   if [[ -e "$input" ]]; then
-    echo "The file or directory '$input' already exists. Do you want to overwrite it? (y/n)"
-    read -r response
-    case "$response" in
-      [Yy]*) 
-        echo "Overwriting '$input'..."
-        rm -rf "$input" 
-        ;;
-      *) 
-        echo "Aborting creation of: $input"
-        return 1
-        ;;
-    esac
+    if [ "$auto_overwrite" = true ]; then
+      echo "Overwriting '$input'..."
+      rm -rf "$input"
+    elif [ "$auto_skip" = true ]; then
+      echo "Skipping '$input'..."
+      return 0
+    else
+      echo "The file or directory '$input' already exists. Do you want to overwrite it? (y/n)"
+      read -r response
+      case "$response" in
+        [Yy]*) 
+          echo "Overwriting '$input'..."
+          rm -rf "$input" 
+          ;;
+        *) 
+          echo "Aborting creation of: $input"
+          return 1
+          ;;
+      esac
+    fi
   fi
 
   # Handle directory creation
