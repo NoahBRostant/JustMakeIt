@@ -81,13 +81,13 @@ fi
 # --- Test Setup ---
 TEST_DIR="$TEST_SCRIPT_DIR/mk_test_dir"
 TEMPLATE_DIR="$TEST_SCRIPT_DIR/.templates"
-LUA_PLACEHOLDER_FILE="$TEST_SCRIPT_DIR/mk_placeholders.lua"
+# Note: The LUA_PLACEHOLDER_FILE is now created *inside* the TEST_DIR
+LUA_PLACEHOLDER_FILE="$TEST_DIR/mk_placeholders.lua" 
 
 # Clean up previous test runs
 echo "Cleaning up old test directory and templates..."
 rm -rf "$TEST_DIR"
 rm -f "$CONFIG_FILE"
-rm -f "$LUA_PLACEHOLDER_FILE"
 # Keep the python.py template, remove others
 find "$TEMPLATE_DIR" -type f ! -name 'python.py' -delete
 
@@ -120,6 +120,7 @@ end
 EOL
 _assert_exists "$LUA_PLACEHOLDER_FILE" "Create test mk_placeholders.lua"
 fi
+
 
 
 # --- Test Cases ---

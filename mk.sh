@@ -37,9 +37,14 @@ _mk_process_template_placeholders() {
     sed_expressions+="-e 's/<{&DATETIME&}>/$current_datetime/g' "
 
     # 2. Lua-defined placeholders
-    local lua_script_path="$HOME/.mk/mk_placeholders.lua"
+    # Check for a local placeholder file first, then fall back to the home directory
+    local lua_script_path="./mk_placeholders.lua"
+    if [ ! -f "$lua_script_path" ]; then
+        lua_script_path="$HOME/.mk/mk_placeholders.lua"
+    fi
+
     if command -v lua >/dev/null && [ -f "$lua_script_path" ]; then
-        $verbose && echo "Executing Lua placeholder script..."
+        $verbose && echo "Executing Lua placeholder script from '$lua_script_path'..."
         local lua_output
         lua_output=$(lua "$lua_script_path")
         
