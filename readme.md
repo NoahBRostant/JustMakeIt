@@ -1,5 +1,5 @@
 <div align="center">
-   <img src="./assets/Group@4x.png" width="150px" alt="Project Logo" />
+   <img src="./assets/logo.png" width="150px" alt="Project Logo" />
     <h1>JustMakeIt</h1>
 </div>
 
