@@ -34,7 +34,7 @@
     source /path/to/your/mk.sh
     ```
     Or if you're looking to update to the latest version.
-    ```
+    ```sh
     # Run the update argument
     mk --update
     ```
