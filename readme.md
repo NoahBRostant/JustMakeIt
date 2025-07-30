@@ -37,6 +37,15 @@ This makes the `mk` command available in your terminal.
 
 <br>
 
+### Compatibility
+
+  | Platform | Compatibility | Required Actions |
+  | :--- | :--- | :--- |
+  | Linux | ✅ Fully Compatible | None. |
+  | macOS | ⚠ Mostly Compatible | Install gnu-getopt via Homebrew and add it to your PATH. |
+  | Windows | ❌ Not Compatible Natively | Must use a compatibility layer. WSL is recommended for a seamless experience. Git Bash is a good alternative. |
+
+
 ## Usage
 
 ### Basic Command Syntax
