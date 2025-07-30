@@ -1,3 +1,7 @@
 ./.templates/
 ./mk_placeholders.lua
 ./mk.conf
+.templates
+.last_check
+mk.conf
+mk_placeholders.lua
