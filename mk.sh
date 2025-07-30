@@ -1,10 +1,27 @@
 #!/bin/bash
 
-# JustMakeIt v1.1.0-beta.1
-CURRENT_VERSION="v1.1.0-beta.1"
+# JustMakeIt v1.1.0
+CURRENT_VERSION="v1.1.0"
 
 # --- Update Checker ---
 _mk_check_for_updates() {
+    local config_file="$HOME/.mk/mk.conf"
+    local auto_update_check=false # Default to true
+
+    if [ -f "$config_file" ]; then
+        # Read the config file safely
+        while IFS='=' read -r key value; do
+            if [[ "$key" == "auto_update_check" ]]; then
+                auto_update_check="$value"
+            fi
+        done < "$config_file"
+    fi
+
+    # Exit if the user has disabled the auto-update check
+    if [[ "$auto_update_check" != "true" ]]; then
+        return
+    fi
+
     local last_check_file="$HOME/.mk/.last_check"
     # Check if an update check has been performed in this shell session
     if [ -n "$MK_UPDATE_CHECKED" ]; then
@@ -31,7 +48,11 @@ _mk_check_for_updates() {
         highest_version=$(printf "%s\n%s" "$CURRENT_VERSION" "$latest_version" | sort -V | tail -n 1)
 
         if [[ "$highest_version" != "$CURRENT_VERSION" ]]; then
-            echo "A new version of mk ($latest_version) is available! Run 'mk --update' to install it."
+            # ANSI color codes for yellow text
+            local yellow='\033[1;33m'
+            local nc='\033[0m' # No Color
+            # Write the notification to a file instead of echoing directly
+            echo -e "${yellow}A new version of mk ($latest_version) is available! Run 'mk --update' to install it.${nc}" > "$HOME/.mk/.update_notice"
         fi
     fi
 
@@ -411,25 +432,33 @@ _mk_perform_update() {
 # Overwrite the old script with the new one
 mv "$temp_file" "$script_path"
 echo "Update complete! Please restart your terminal or run 'source ~/.mk/mk.sh' to apply the changes."
-# Clean up this updater script
-rm -- "$0"
+# Clean up this updater script by its explicit path
+rm -- "$updater_script"
 EOL
 
-    # Make the updater executable and run it in the background
+    # Make the updater executable and run it silently in the background
     chmod +x "$updater_script"
+    set +m
     "$updater_script" &
+    disown
+    set -m
     
     echo "Update process initiated. The script will now exit."
-    exit 0
+    return 0
 }
 
 # Main function
 mk() {
+  # Check for and display a pending update notification
+  local notice_file="$HOME/.mk/.update_notice"
+  if [ -f "$notice_file" ]; then
+      cat "$notice_file"
+      rm "$notice_file"
+  fi
+
   # This is the robust way to run a background process from a sourced function
   # in an interactive shell without getting any job control messages.
-  set +m # Temporarily disable job control monitoring
-  ( _mk_check_for_updates >/dev/null 2>&1 < /dev/null ) & disown
-  set -m # Re-enable job control
+  ( _mk_check_for_updates & )
 
   local verbose=false
   local chmod_mode=""
