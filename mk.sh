@@ -85,7 +85,15 @@ _mk_apply_template_logic() {
     local extension_check=true # Default
 
     if [ -f "$config_file" ]; then
-        source "$config_file"
+        # Read the config file safely, only parsing the expected variable
+        while IFS='=' read -r key value; do
+            # Remove potential quotes from value
+            value=${value#\"}
+            value=${value%\"}
+            if [[ "$key" == "extension_check" ]]; then
+                extension_check="$value"
+            fi
+        done < "$config_file"
     fi
 
     if [ ! -d "$template_dir" ]; then
