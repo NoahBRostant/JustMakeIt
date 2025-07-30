@@ -4,7 +4,6 @@
 # Get the directory of the test script
 TEST_SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 MK_SCRIPT_PATH="$TEST_SCRIPT_DIR/mk.sh"
-CONFIG_FILE="$TEST_SCRIPT_DIR/mk.conf"
 
 source "$MK_SCRIPT_PATH" || { echo "Failed to source mk.sh from $MK_SCRIPT_PATH"; exit 1; }
 type mk >/dev/null 2>&1 || { echo "mk command not found after sourcing"; exit 1; }
@@ -77,7 +76,6 @@ TEMPLATE_DIR="$TEST_SCRIPT_DIR/.templates"
 # Clean up previous test runs
 echo "Cleaning up old test directory and templates..."
 rm -rf "$TEST_DIR"
-rm -f "$CONFIG_FILE"
 # Keep the python.py template, remove others
 find "$TEMPLATE_DIR" -type f ! -name 'python.py' -delete
 
@@ -113,17 +111,10 @@ mk script.sh -t sh.sh -v
 _assert_exists "script.sh" "Create a shell script with explicit --template"
 _assert_contains "script.sh" "#!/bin/sh - shebang" "Shell script should contain content from sh.sh template"
 
-# Implicit template by extension (with config enabled)
-echo "extension_check=true" > "$CONFIG_FILE"
+# Implicit template by extension
 mk index.html -v
-_assert_exists "index.html" "Create an HTML file with implicit template (check enabled)"
+_assert_exists "index.html" "Create an HTML file with implicit template"
 _assert_contains "index.html" "<h1>HTML Test</h1>" "HTML file should contain content from html.html template"
-
-# Implicit template by extension (with config disabled)
-echo "extension_check=false" > "$CONFIG_FILE"
-mk no_implicit.html -v
-_assert_exists "no_implicit.html" "Create an HTML file with implicit template (check disabled)"
-_assert_not_contains "no_implicit.html" "<h1>HTML Test</h1>" "HTML file should be empty when check is disabled"
 
 # No template flag
 mk no_template.sh --no-template -v
@@ -131,7 +122,6 @@ _assert_exists "no_template.sh" "Create a file with --no-template flag"
 _assert_not_contains "no_template.sh" "#!/bin/sh - shebang" "File with --no-template should be empty"
 
 # Implicit python template
-echo "extension_check=true" > "$CONFIG_FILE"
 mk my_script.py -v
 _assert_exists "my_script.py" "Create a Python file with implicit template"
 _assert_contains "my_script.py" "if __name__ == \"__main__\":" "Python file should contain main execution block"
@@ -208,7 +198,6 @@ unset EDITOR
 echo -e "\n--- Cleaning up ---"
 cd "$TEST_SCRIPT_DIR"
 rm -rf "$TEST_DIR"
-rm -f "$CONFIG_FILE"
 # Clean up dummy templates
 rm -f "$TEMPLATE_DIR/sh.sh" "$TEMPLATE_DIR/html.html"
 echo -e "${GREEN}Cleanup complete.${NC}"
