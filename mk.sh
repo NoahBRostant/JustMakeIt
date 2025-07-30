@@ -8,6 +8,7 @@ _mk_usage() {
   echo "Usage: mk [file_name|directory_name/] [options]"
   echo "Options:"
   echo "  -v, --verbose             Provide detailed output"
+  echo "  -V, --version             Display the version number"
   echo "  -c, --chmod MODE          Set file or directory permissions (e.g., 644, 755)"
   echo "  -t, --template FILE       Create a file from a template file in ~/.mk/.templates/"
   echo "      --list-templates      List the available templates in ~/.mk/.templates/"
@@ -324,11 +325,12 @@ mk() {
   local auto_overwrite=false
   local auto_skip=false
   local no_template=false
-  local list_templates=false # New variable
+  local list_templates=false
+  local show_version=false # New variable
   local input=""
 
   local options
-  options=$(getopt -o vc:t:ol:ynh --long verbose,chmod:,template:,open,list:,yes,no,help,no-template,list-templates -n 'mk' -- "$@")
+  options=$(getopt -o vVc:t:ol:ynh --long verbose,version,chmod:,template:,open,list:,yes,no,help,no-template,list-templates -n 'mk' -- "$@")
   if [ $? -ne 0 ]; then
     _mk_usage
     return 1
@@ -339,6 +341,7 @@ mk() {
   while true; do
     case "$1" in
       -v|--verbose) verbose=true; shift ;;
+      -V|--version) show_version=true; shift ;;
       -c|--chmod) chmod_mode="$2"; shift 2 ;;
       -t|--template) template="$2"; shift 2 ;;
       --no-template) no_template=true; shift ;;
@@ -352,6 +355,11 @@ mk() {
       *) echo "Internal error!"; exit 1 ;;
     esac
   done
+
+  if $show_version; then
+    echo "v1.0.0 stable"
+    return 0
+  fi
 
   if $list_templates; then
     _mk_list_templates
