@@ -1,5 +1,45 @@
 #!/bin/bash
 
+# JustMakeIt v1.1.0-beta.1
+CURRENT_VERSION="v1.1.0-beta.1"
+
+# --- Update Checker ---
+_mk_check_for_updates() {
+    local last_check_file="$HOME/.mk/.last_check"
+    # Check if an update check has been performed in this shell session
+    if [ -n "$MK_UPDATE_CHECKED" ]; then
+        return
+    fi
+    export MK_UPDATE_CHECKED=true
+
+    # Only check for updates once every 24 hours
+    if [ -f "$last_check_file" ]; then
+        local last_check_time=$(stat -c %Y "$last_check_file")
+        local current_time=$(date +%s)
+        if (( (current_time - last_check_time) < 86400 )); then
+            return
+        fi
+    fi
+
+    # Fetch the latest release tag from GitHub API
+    local latest_version
+    latest_version=$(curl -s "https://api.github.com/repos/NoahBRostant/JustMakeIt/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+
+    if [[ -n "$latest_version" ]]; then
+        # Use sort -V for a robust version comparison
+        local highest_version
+        highest_version=$(printf "%s\n%s" "$CURRENT_VERSION" "$latest_version" | sort -V | tail -n 1)
+
+        if [[ "$highest_version" != "$CURRENT_VERSION" ]]; then
+            echo "A new version of mk ($latest_version) is available! Run 'mk --update' to install it."
+        fi
+    fi
+
+    # Update the timestamp file
+    touch "$last_check_file"
+}
+
+
 # Get the directory where the script is located
 # SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
@@ -18,6 +58,7 @@ _mk_usage() {
   echo "  -y, --yes                 Automatically overwrite all conflicting files/directories"
   echo "  -n, --no                  Automatically skip all conflicting files/directories"
   echo "  -h, --help                Show this help message"
+  echo "  -u, --update              Check and update JustMakeIt"
 }
 
 # Function to process placeholders in a template file
@@ -323,8 +364,73 @@ _mk_list_templates() {
     fi
 }
 
+# Function to perform the self-update
+_mk_perform_update() {
+    echo "Checking for the latest version..."
+    local latest_version
+    latest_version=$(curl -s "https://api.github.com/repos/NoahBRostant/JustMakeIt/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+
+    if [[ -z "$latest_version" ]]; then
+        echo "Could not fetch the latest version. Please check your internet connection."
+        return 1
+    fi
+
+    local highest_version
+    highest_version=$(printf "%s\n%s" "$CURRENT_VERSION" "$latest_version" | sort -V | tail -n 1)
+
+    if [[ "$highest_version" == "$CURRENT_VERSION" && "$latest_version" != "$CURRENT_VERSION" ]]; then
+        echo "You are on a newer version ($CURRENT_VERSION) than the latest release ($latest_version)."
+        return 0
+    elif [[ "$highest_version" == "$CURRENT_VERSION" ]]; then
+        echo "You are already on the latest version ($CURRENT_VERSION)."
+        return 0
+    fi
+
+    echo "A new version ($latest_version) is available. Do you want to update? (y/n)"
+    read -r response
+    if [[ ! "$response" =~ ^[Yy]$ ]]; then
+        echo "Update aborted."
+        return 1
+    fi
+
+    echo "Downloading the latest version..."
+    local download_url="https://github.com/NoahBRostant/JustMakeIt/releases/latest/download/mk.sh"
+    local temp_file="/tmp/mk.sh.new"
+    if ! curl -L "$download_url" -o "$temp_file"; then
+        echo "Download failed. Please try again later."
+        return 1
+    fi
+
+    # The path to the currently running script
+    local script_path="$HOME/.mk/mk.sh"
+    
+    # Create a helper script to perform the overwrite
+    local updater_script="/tmp/mk_updater.sh"
+    cat <<EOL > "$updater_script"
+#!/bin/bash
+# Overwrite the old script with the new one
+mv "$temp_file" "$script_path"
+echo "Update complete! Please restart your terminal or run 'source ~/.mk/mk.sh' to apply the changes."
+# Clean up this updater script
+rm -- "$0"
+EOL
+
+    # Make the updater executable and run it in the background
+    chmod +x "$updater_script"
+    "$updater_script" &
+    
+    echo "Update process initiated. The script will now exit."
+    exit 0
+}
+
 # Main function
 mk() {
+  # This is the robust way to run a background process from a sourced function
+  # in an interactive shell without getting any job control messages.
+  set +m # Temporarily disable job control monitoring
+  ( _mk_check_for_updates >/dev/null 2>&1 < /dev/null ) & disown
+  set -m # Re-enable job control
+
   local verbose=false
   local chmod_mode=""
   local list_file=""
@@ -334,11 +440,12 @@ mk() {
   local auto_skip=false
   local no_template=false
   local list_templates=false
-  local show_version=false # New variable
+  local show_version=false
+  local do_update=false # New variable
   local input=""
 
   local options
-  options=$(getopt -o vVc:t:ol:ynh --long verbose,version,chmod:,template:,open,list:,yes,no,help,no-template,list-templates -n 'mk' -- "$@")
+  options=$(getopt -o uVvc:t:ol:ynh --long update,version,verbose,chmod:,template:,open,list:,yes,no,help,no-template,list-templates -n 'mk' -- "$@")
   if [ $? -ne 0 ]; then
     _mk_usage
     return 1
@@ -348,8 +455,9 @@ mk() {
 
   while true; do
     case "$1" in
-      -v|--verbose) verbose=true; shift ;;
+      -u|--update) do_update=true; shift ;;
       -V|--version) show_version=true; shift ;;
+      -v|--verbose) verbose=true; shift ;;
       -c|--chmod) chmod_mode="$2"; shift 2 ;;
       -t|--template) template="$2"; shift 2 ;;
       --no-template) no_template=true; shift ;;
@@ -365,7 +473,12 @@ mk() {
   done
 
   if $show_version; then
-    echo "v1.0.0 stable"
+    echo "$CURRENT_VERSION stable"
+    return 0
+  fi
+
+  if $do_update; then
+    _mk_perform_update
     return 0
   fi
 
