@@ -33,8 +33,14 @@
     # Add this line to your shell's profile file
     source /path/to/your/mk.sh
     ```
+    Or if you're looking to update to the latest version.
+    ```
+    # Run the update argument
+    mk --update
+    ```
+    
 
-2.  **Create a template.** For example, create a simple Python template at `~/.mk/.templates/python.py`:
+3.  **Create a template.** For example, create a simple Python template at `~/.mk/.templates/python.py`:
     ```python
     # Author: <{&AUTHOR&}>
     # Created on: <{&DATE&}>
@@ -47,7 +53,7 @@
         main()
     ```
 
-3.  **Use `mk` to create a new file from your template!**
+4.  **Use `mk` to create a new file from your template!**
     ```bash
     mk my_new_script.py
     ```
