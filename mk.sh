@@ -23,26 +23,43 @@ _mk_usage() {
 _mk_process_template_placeholders() {
     local input_file="$1"
     local verbose="$2"
+    local sed_expressions=""
 
-    # Define placeholders
+    # 1. Built-in placeholders
     local filename=$(basename "$input_file")
     local current_date=$(date +%Y-%m-%d)
     local current_time=$(date +%H:%M:%S)
     local current_datetime=$(date +"%Y-%m-%d %H:%M:%S")
 
-    # Use sed to perform in-place replacements
-    # The weird syntax is to make it compatible with both GNU and BSD sed
-    sed -i.bak \
-        -e "s/<{&FILENAME&}>/$filename/g" \
-        -e "s/<{&DATE&}>/$current_date/g" \
-        -e "s/<{&TIME&}>/$current_time/g" \
-        -e "s/<{&DATETIME&}>/$current_datetime/g" \
-        "$input_file"
-    
-    # Remove the backup file created by sed
-    rm -f "$input_file.bak"
+    sed_expressions+="-e 's/<{&FILENAME&}>/$filename/g' "
+    sed_expressions+="-e 's/<{&DATE&}>/$current_date/g' "
+    sed_expressions+="-e 's/<{&TIME&}>/$current_time/g' "
+    sed_expressions+="-e 's/<{&DATETIME&}>/$current_datetime/g' "
 
-    $verbose && echo "Processed placeholders in '$input_file'."
+    # 2. Lua-defined placeholders
+    local lua_script_path="$HOME/.mk/mk_placeholders.lua"
+    if command -v lua >/dev/null && [ -f "$lua_script_path" ]; then
+        $verbose && echo "Executing Lua placeholder script..."
+        local lua_output
+        lua_output=$(lua "$lua_script_path")
+        
+        while IFS='=' read -r key value; do
+            # Skip empty lines from Lua output
+            if [ -n "$key" ]; then
+                $verbose && echo "  - Found Lua placeholder: $key"
+                sed_expressions+="-e 's/<{&"$key"&}>/$value/g' "
+            fi
+        done <<< "$lua_output"
+    fi
+
+    # 3. Perform all replacements in a single sed command
+    if [ -n "$sed_expressions" ]; then
+        # Use a temporary variable to build the command safely
+        local sed_command="sed -i.bak $sed_expressions \"$input_file\""
+        eval "$sed_command"
+        rm -f "$input_file.bak"
+        $verbose && echo "Processed placeholders in '$input_file'."
+    fi
 }
 
 # Refactored function to apply templates

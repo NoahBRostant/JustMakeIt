@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# this is the <{&FILENAME&}> file.
+# this is the <{&FILENAME&}> file made <{&DATE&}> on <{&USEROS&}>.
 
 def main():
     # TODO: Your code here
