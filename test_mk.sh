@@ -178,7 +178,32 @@ _assert_exists "list_file1.txt" "Create file from list"
 _assert_exists "list_dir" "Create directory from list"
 _assert_exists "nested_list/file2.txt" "Create nested file from list"
 
-# 6. Edge Cases and Error Handling
+# 6. List Mode with Per-Line Arguments
+echo -e "\n--- Testing List Mode with Arguments ---"
+cat <<EOL > list_with_args.txt
+# This is a test list with arguments
+list_script.sh --template=sh.sh
+list_html.html # Should use implicit template
+list_no_template.txt --no-template
+list_chmod.txt --chmod=777
+EOL
+
+# Set a global option that should be overridden
+mk --list=list_with_args.txt --template=html.html -v
+_assert_exists "list_script.sh" "List: Create shell script with per-line template"
+_assert_contains "list_script.sh" "#!/bin/sh - shebang" "List: Shell script should contain sh content"
+_assert_exists "list_html.html" "List: Create HTML file with implicit template"
+_assert_contains "list_html.html" "<h1>HTML Test</h1>" "List: HTML file should contain html content"
+_assert_exists "list_no_template.txt" "List: Create file with --no-template"
+_assert_not_contains "list_no_template.txt" "<h1>" "List: no_template file should be empty"
+_assert_exists "list_chmod.txt" "List: Create file with per-line chmod"
+if [ -x "list_chmod.txt" ]; then
+    _assert_success "List: chmod file should have execute permissions"
+else
+    _assert_fail "List: chmod file should have execute permissions"
+fi
+
+# 7. Edge Cases and Error Handling
 echo -e "\n--- Testing Error Handling ---"
 # Test invalid template (should create an empty file with a warning)
 output=$(mk non_existent_dir/file.txt --template=invalid.tpl -v 2>&1)
@@ -192,7 +217,7 @@ fi
 # mk --list=non_existent_list.txt >/dev/null 2>&1
 # _assert_fail "Using a non-existent list file should fail"
 
-# 7. --open flag (mocking the editor)
+# 8. --open flag (mocking the editor)
 echo -e "\n--- Testing --open Flag ---"
 export EDITOR="echo FAKE_EDITOR"
 output=$(mk open_test.txt --open --no-template -v 2>&1)

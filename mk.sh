@@ -172,18 +172,69 @@ _mk_create_single() {
 # Function to process a list of files and directories
 _mk_create_from_list() {
     local list_file="$1"
-    shift
-    
+    # Capture global options passed from the main command
+    local global_template="$2"
+    local global_chmod_mode="$3"
+    local global_open_after_creation="$4"
+    local global_verbose="$5"
+    local global_auto_overwrite="$6"
+    local global_auto_skip="$7"
+    local global_no_template="$8"
+
     if [ ! -f "$list_file" ]; then
         echo "List file not found: $list_file"
         return 1
     fi
 
-    # Read the list file line by line
     while IFS= read -r line; do
-        # This is where we would parse arguments per line in the future.
-        # For now, we pass the global options to the creation function.
-        _mk_create_single "$line" "$@"
+        # Skip empty lines, whitespace-only lines, and comments
+        if ! [[ "$line" =~ [^[:space:]] ]] || [[ "$line" =~ ^[[:space:]]*# ]]; then
+            continue
+        fi
+
+        # Portably extract the first word (the input file/dir) and the rest of the line
+        local input
+        local line_args
+        read -r input line_args <<< "$line"
+
+        # Initialize line-specific options with global defaults
+        local template="$global_template"
+        local chmod_mode="$global_chmod_mode"
+        local open_after_creation="$global_open_after_creation"
+        local no_template="$global_no_template"
+        local auto_overwrite="$global_auto_overwrite"
+        local auto_skip="$global_auto_skip"
+
+        # Parse per-line arguments from the rest of the line
+        for arg in $line_args; do
+            case "$arg" in
+                -t=*|--template=*)
+                    template="${arg#*=}"
+                    ;;
+                -c=*|--chmod=*)
+                    chmod_mode="${arg#*=}"
+                    ;;
+                -o|--open)
+                    open_after_creation=true
+                    ;;
+                --no-template)
+                    no_template=true
+                    ;;
+                -y|--yes)
+                    auto_overwrite=true
+                    ;;
+                -n|--no)
+                    auto_skip=true
+                    ;;
+            esac
+        done
+
+        # Call the creation function with the final merged options for the line
+        _mk_create_single "$input" "$template" "$chmod_mode" "$open_after_creation" "$global_verbose" "$auto_overwrite" "$auto_skip" "$no_template"
+        if [ $? -ne 0 ]; then
+            echo "Stopping list processing due to an error."
+            return 1
+        fi
     done < "$list_file"
 
     return 0
