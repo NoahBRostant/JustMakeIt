@@ -65,7 +65,7 @@
 
 ### 🛠️ Testing
 
-The script includes a full test suite. To run it, first make the test script executable, then run it.
+The script includes a full test suite. To run it, download the test_mk.sh file from the release you're using. Then make the test script executable, and run it.
 
 ```bash
 chmod +x ./test_mk.sh
