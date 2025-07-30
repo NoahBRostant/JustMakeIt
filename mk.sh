@@ -19,6 +19,32 @@ _mk_usage() {
   echo "  -h, --help                Show this help message"
 }
 
+# Function to process placeholders in a template file
+_mk_process_template_placeholders() {
+    local input_file="$1"
+    local verbose="$2"
+
+    # Define placeholders
+    local filename=$(basename "$input_file")
+    local current_date=$(date +%Y-%m-%d)
+    local current_time=$(date +%H:%M:%S)
+    local current_datetime=$(date +"%Y-%m-%d %H:%M:%S")
+
+    # Use sed to perform in-place replacements
+    # The weird syntax is to make it compatible with both GNU and BSD sed
+    sed -i.bak \
+        -e "s/<{&FILENAME&}>/$filename/g" \
+        -e "s/<{&DATE&}>/$current_date/g" \
+        -e "s/<{&TIME&}>/$current_time/g" \
+        -e "s/<{&DATETIME&}>/$current_datetime/g" \
+        "$input_file"
+    
+    # Remove the backup file created by sed
+    rm -f "$input_file.bak"
+
+    $verbose && echo "Processed placeholders in '$input_file'."
+}
+
 # Refactored function to apply templates
 _mk_apply_template_logic() {
     local input="$1"
@@ -69,6 +95,8 @@ _mk_apply_template_logic() {
     if [ -n "$template_file_to_use" ]; then
         cat "$template_file_to_use" > "$input"
         $verbose && echo "Template applied."
+        # 4. Process placeholders
+        _mk_process_template_placeholders "$input" "$verbose"
     fi
 }
 
