@@ -1,6 +1,6 @@
 <div align="center">
    <img src="./assets/Group@4x.png" width="150px" alt="Project Logo" />
-    <h1>JustMakeIt (Linux)</h1>
+    <h1>JustMakeIt</h1>
 </div>
 
 ## Description
