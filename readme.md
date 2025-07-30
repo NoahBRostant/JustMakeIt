@@ -4,6 +4,9 @@
 
 # JustMakeIt
 
+![GitHub Release](https://img.shields.io/github/v/release/NoahBRostant/JustMakeIt?sort=semver&display_name=release&style=flat)
+![GitHub License](https://img.shields.io/github/license/NoahBRostant/JustMakeIt)
+
 **A powerful command-line utility to streamline file and directory creation.**
 
 </div>
