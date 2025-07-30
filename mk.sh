@@ -8,11 +8,12 @@ _mk_usage() {
   echo "Usage: mk [file_name|directory_name/] [options]"
   echo "Options:"
   echo "  -v, --verbose             Provide detailed output"
-  echo "  -c, --chmod=MODE          Set file or directory permissions (e.g., 644, 755)"
-  echo "  -t, --template=FILE       Create a file from a template file in ~/.mk/.templates/"
-  echo "  -nt, --no-template        Do not apply any template"
+  echo "  -c, --chmod MODE          Set file or directory permissions (e.g., 644, 755)"
+  echo "  -t, --template FILE       Create a file from a template file in ~/.mk/.templates/"
+  echo "      --list-templates      List the available templates in ~/.mk/.templates/"
+  echo "      --no-template         Do not apply any template"
   echo "  -o, --open                Open the created file or directory"
-  echo "  -l, --list=FILE           Create files and directories from a list"
+  echo "  -l, --list FILE           Create files and directories from a list"
   echo "  -y, --yes                 Automatically overwrite all conflicting files/directories"
   echo "  -n, --no                  Automatically skip all conflicting files/directories"
   echo "  -h, --help                Show this help message"
@@ -240,6 +241,29 @@ _mk_create_from_list() {
     return 0
 }
 
+
+# Function to list available templates
+_mk_list_templates() {
+    local template_dir="$HOME/.mk/.templates"
+    if [ ! -d "$template_dir" ]; then
+        echo "Template directory not found at '$template_dir'."
+        return 1
+    fi
+
+    echo "Available templates:"
+    local templates_found=false
+    for template in "$template_dir"/*; do
+        if [ -f "$template" ]; then
+            echo "  - $(basename "$template")"
+            templates_found=true
+        fi
+    done
+
+    if ! $templates_found; then
+        echo "  No templates found."
+    fi
+}
+
 # Main function
 mk() {
   local verbose=false
@@ -249,11 +273,12 @@ mk() {
   local open_after_creation=false
   local auto_overwrite=false
   local auto_skip=false
-  local no_template=false # New variable
+  local no_template=false
+  local list_templates=false # New variable
   local input=""
 
   local options
-  options=$(getopt -o vc:t:ol:ynh --long verbose,chmod:,template:,open,list:,yes,no,help,no-template -n 'mk' -- "$@")
+  options=$(getopt -o vc:t:ol:ynh --long verbose,chmod:,template:,open,list:,yes,no,help,no-template,list-templates -n 'mk' -- "$@")
   if [ $? -ne 0 ]; then
     _mk_usage
     return 1
@@ -266,9 +291,10 @@ mk() {
       -v|--verbose) verbose=true; shift ;;
       -c|--chmod) chmod_mode="$2"; shift 2 ;;
       -t|--template) template="$2"; shift 2 ;;
-      --no-template) no_template=true; shift ;; # New option
+      --no-template) no_template=true; shift ;;
       -o|--open) open_after_creation=true; shift ;;
       -l|--list) list_file="$2"; shift 2 ;;
+      --list-templates) list_templates=true; shift ;;
       -y|--yes) auto_overwrite=true; shift ;;
       -n|--no) auto_skip=true; shift ;;
       -h|--help) _mk_usage; return 0 ;;
@@ -276,6 +302,11 @@ mk() {
       *) echo "Internal error!"; exit 1 ;;
     esac
   done
+
+  if $list_templates; then
+    _mk_list_templates
+    return 0
+  fi
 
   input="$1"
 
