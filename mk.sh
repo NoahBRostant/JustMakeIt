@@ -18,7 +18,98 @@ _mk_usage() {
   echo "  -h, --help                Show this help message"
 }
 
-# Function to handle the creation of a single file or directory
+# Refactored function to apply templates
+_mk_apply_template_logic() {
+    local input="$1"
+    local template="$2"
+    local verbose="$3"
+    local no_template="$4"
+
+    if $no_template; then
+        return 0
+    fi
+
+    local template_file_to_use=""
+    local template_dir="$HOME/.mk/.templates"
+    local config_file="$HOME/.mk/mk.conf"
+    local extension_check=true # Default
+
+    if [ -f "$config_file" ]; then
+        source "$config_file"
+    fi
+
+    if [ ! -d "$template_dir" ]; then
+        $verbose && echo "Template directory not found at '$template_dir'."
+        return 0
+    fi
+
+    # 1. Explicit template
+    if [ -n "$template" ]; then
+        local found_template=$(find "$template_dir" -maxdepth 1 -type f \( -name "$template" -o -name "$template.*" \) 2>/dev/null | head -n 1)
+        if [ -n "$found_template" ]; then
+            template_file_to_use="$found_template"
+            $verbose && echo "Using explicit template: $template_file_to_use"
+        else
+            $verbose && echo "Warning: Template '$template' not found in '$template_dir'."
+        fi
+    # 2. Implicit template by extension
+    elif [ "$extension_check" = true ]; then
+        local extension="${input##*.}"
+        if [[ -n "$extension" && "$extension" != "$input" ]]; then
+            local found_template=$(find "$template_dir" -maxdepth 1 -type f -name "*.$extension" 2>/dev/null | head -n 1)
+            if [ -n "$found_template" ]; then
+                template_file_to_use="$found_template"
+                $verbose && echo "Found implicit template for extension '.$extension': $template_file_to_use"
+            fi
+        fi
+    fi
+
+    # 3. Apply if found
+    if [ -n "$template_file_to_use" ]; then
+        cat "$template_file_to_use" > "$input"
+        $verbose && echo "Template applied."
+    fi
+}
+
+# Refactored function to handle overwrite logic
+_mk_handle_overwrite() {
+    local input="$1"
+    local verbose="$2"
+    local auto_overwrite="$3"
+    local auto_skip="$4"
+
+    if [ ! -e "$input" ]; then
+        echo "proceed" # It's a new file/dir
+        return 0
+    fi
+
+    if [ "$auto_overwrite" = true ]; then
+        $verbose && echo "Overwriting '$input'..."
+        echo "proceed"
+        return 0
+    fi
+
+    if [ "$auto_skip" = true ]; then
+        $verbose && echo "Skipping '$input'..."
+        echo "skip"
+        return 0
+    fi
+
+    echo "The file or directory '$input' already exists. Do you want to overwrite it? (y/n)"
+    read -r response
+    case "$response" in
+        [Yy]*)
+            $verbose && echo "Overwriting '$input'..."
+            echo "proceed"
+            ;;
+        *)
+            echo "Aborting creation of: $input"
+            echo "abort"
+            ;;
+    esac
+}
+
+# Main creation function, now refactored
 _mk_create_single() {
     local input="$1"
     local template="$2"
@@ -27,51 +118,39 @@ _mk_create_single() {
     local verbose="$5"
     local auto_overwrite="$6"
     local auto_skip="$7"
-    local no_template="$8" # New argument
-    local is_new_file=true
+    local no_template="$8"
 
-    # Safety check for existing file or directory
-    if [[ -e "$input" ]]; then
-        is_new_file=false
-        if [ "$auto_overwrite" = true ]; then
-            $verbose && echo "Overwriting '$input'..."
-        elif [ "$auto_skip" = true ]; then
-            $verbose && echo "Skipping '$input'..."
-            return 0
-        else
-            echo "The file or directory '$input' already exists. Do you want to overwrite it? (y/n)"
-            read -r response
-            case "$response" in
-                [Yy]*)
-                    $verbose && echo "Overwriting '$input'..."
-                    ;;
-                *)
-                    echo "Aborting creation of: $input"
-                    return 1
-                    ;;
-            esac
-        fi
-    fi
+    local overwrite_status
+    overwrite_status=$(_mk_handle_overwrite "$input" "$verbose" "$auto_overwrite" "$auto_skip")
+
+    case "$overwrite_status" in
+        *"skip"*) return 0 ;;
+        *"abort"*) return 1 ;;
+    esac
+
+    local is_new_file=true
+    [ -e "$input" ] && is_new_file=false
 
     # Handle directory creation
     if [[ "$input" == */ ]]; then
-        dir_name="${input%/}" # Remove trailing slash
-        if [ "$is_new_file" = true ]; then
-            if mkdir -p "$dir_name"; then
-                $verbose && echo "Directory created: $dir_name"
-            else
+        local dir_name="${input%/}"
+        if $is_new_file; then
+            if ! mkdir -p "$dir_name"; then
                 echo "Failed to create directory: $dir_name"
                 return 1
             fi
+            $verbose && echo "Directory created: $dir_name"
         fi
+        
+        [ -n "$chmod_mode" ] && chmod "$chmod_mode" "$dir_name"
+        
         if $open_after_creation; then
             cd "$dir_name" && echo "Switched to directory: $dir_name"
         fi
-        [[ -n "$chmod_mode" ]] && chmod "$chmod_mode" "$dir_name"
+    # Handle file creation
     else
-        # Handle file creation
-        if [ "$is_new_file" = true ]; then
-            dir_name=$(dirname "$input")
+        if $is_new_file; then
+            local dir_name=$(dirname "$input")
             if ! mkdir -p "$dir_name" || ! touch "$input"; then
                 echo "Failed to create file: $input"
                 return 1
@@ -79,53 +158,9 @@ _mk_create_single() {
             $verbose && echo "File created: $input"
         fi
 
-        # --- New Template Logic ---
-        if ! $no_template; then
-            local template_file_to_use=""
-            local template_dir="$HOME/.mk/.templates"
-            local config_file="$HOME/.mk/mk.conf"
-            local extension_check=true # Default value
-
-            # Read from config file
-            if [ -f "$config_file" ]; then
-                source "$config_file"
-            fi
-
-            if [ -d "$template_dir" ]; then
-                # 1. Explicit template
-                if [ -n "$template" ]; then
-                    # Find a template that matches the provided name, with or without an extension
-                    local found_template=$(find "$template_dir" -maxdepth 1 -type f \( -name "$template" -o -name "$template.*" \) 2>/dev/null | head -n 1)
-                    if [ -n "$found_template" ]; then
-                        template_file_to_use="$found_template"
-                        $verbose && echo "Using explicit template: $template_file_to_use"
-                    else
-                        $verbose && echo "Warning: Template '$template' not found in '$template_dir'."
-                    fi
-                # 2. Implicit template by extension (if enabled)
-                elif [ "$extension_check" = true ]; then
-                    local extension="${input##*.}"
-                    if [[ -n "$extension" && "$extension" != "$input" ]]; then
-                        local found_template=$(find "$template_dir" -maxdepth 1 -type f -name "*.$extension" 2>/dev/null | head -n 1)
-                        if [ -n "$found_template" ]; then
-                            template_file_to_use="$found_template"
-                            $verbose && echo "Found implicit template for extension '.$extension': $template_file_to_use"
-                        fi
-                    fi
-                fi
-
-                # 3. Apply if found
-                if [ -n "$template_file_to_use" ]; then
-                    cat "$template_file_to_use" > "$input"
-                    $verbose && echo "Template applied."
-                fi
-            else
-                $verbose && echo "Template directory not found at '$template_dir'."
-            fi
-        fi
-        # --- End New Template Logic ---
-
-        [[ -n "$chmod_mode" ]] && chmod "$chmod_mode" "$input"
+        _mk_apply_template_logic "$input" "$template" "$verbose" "$no_template"
+        
+        [ -n "$chmod_mode" ] && chmod "$chmod_mode" "$input"
 
         if $open_after_creation; then
             ${EDITOR:-nano} "$input"
