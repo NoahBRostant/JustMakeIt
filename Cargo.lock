@@ -308,6 +308,7 @@ dependencies = [
  "chrono",
  "clap",
  "dirs",
+ "once_cell",
  "serde",
  "thiserror",
  "toml",

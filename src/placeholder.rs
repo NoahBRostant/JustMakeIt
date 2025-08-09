@@ -1,6 +1,7 @@
 // path: crates/mk/src/placeholder.rs
 use std::{collections::HashMap, path::Path, process::Command};
 use chrono::Local;
+use once_cell::sync::OnceCell;
 
 pub fn builtins_for(path: &Path) -> HashMap<String, String> {
     let mut m = HashMap::new();
@@ -35,6 +36,12 @@ pub fn lua_placeholders() -> HashMap<String, String> {
         }
     }
     m
+}
+
+static LUA_CACHE: OnceCell<HashMap<String, String>> = OnceCell::new();
+/// Cached variant: runs Lua at most once per process and reuses the map.
+pub fn lua_placeholders_cached() -> &'static HashMap<String, String> {
+    LUA_CACHE.get_or_init(|| lua_placeholders())
 }
 
 pub fn apply_placeholders(mut content: String, map: &HashMap<String, String>) -> String {
