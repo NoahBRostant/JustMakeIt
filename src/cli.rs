@@ -4,7 +4,7 @@ use std::{fs, io::{self, Read}, path::PathBuf};
 use anyhow::{bail, Context, Result};
 use clap::{Args, Parser, Subcommand};
 
-use crate::{config::Config, legacy_config, ops, template::ContextVars, templater};
+use crate::{config::Config, legacy_config, ops, template::ContextVars, templater, error::MkError};
 
 #[derive(Debug, Parser)]
 #[command(name = "mk", about = "Just Make It — fast file/dir creation from templates", version)]
@@ -128,6 +128,7 @@ impl Cli {
 
         let cfg = Config::load_default()?;
         let legacy = legacy_config::load();
+        let parents_flag = self.parents || cfg.auto_create_parents;
 
         if self.no_clobber && self.force {
             bail!("--no-clobber and --force are mutually exclusive");
@@ -174,7 +175,7 @@ impl Cli {
             else { false };
 
             if treat_as_dir {
-                ops::create_dir(target, self.parents, self.mode.as_deref(), self.dry_run)?;
+                ops::create_dir(target, parents_flag, self.mode.as_deref(), self.dry_run)?;
                 if self.open { println!("mk: directory created: {}", target.display()); }
                 continue;
             }
@@ -191,20 +192,38 @@ impl Cli {
                 }
             }
 
-            // Build template context
+            // Build template context + resolve explicit template
             let mut stdin_buf = String::new();
             if self.stdin { io::stdin().read_to_string(&mut stdin_buf).context("reading from stdin")?; }
-            let tmpl_name_or_ext = self.template.clone().or_else(|| target.extension().map(|e| e.to_string_lossy().to_string()));
-            let tmpl = tmpl_name_or_ext.as_ref().and_then(|key| cfg.get_template(key)).or_else(|| cfg.get_template("default"));
+
+            // Resolve external (file) template and config template
+            let explicit = self.template.as_deref();
+            let ext_template = if !self.no_template {
+                templater::resolve_template_for_input(target, explicit, legacy.extension_check)?
+            } else { None };
+
+            let cfg_tmpl = if let Some(name) = explicit {
+                cfg.get_template(name)
+            } else {
+                let ext_key = target.extension().map(|e| e.to_string_lossy().to_string());
+                ext_key.as_ref().and_then(|k| cfg.get_template(k)).or_else(|| cfg.get_template("default"))
+            };
+
+            // If template explicitly requested but not found anywhere, error out
+            if let Some(name) = explicit {
+                if cfg_tmpl.is_none() && ext_template.is_none() {
+                    return Err(MkError::TemplateNotFound(name.to_string()).into());
+                }
+            }
+
             let ctx = ContextVars::from_path(target, cfg.author.as_deref());
             let content = if self.stdin { Some(stdin_buf.as_str()) } else { None };
 
-            ops::create_file(target, tmpl, &ctx, self.parents, true, false, self.mode.as_deref(), content, self.dry_run)?;
+            ops::create_file(target, cfg_tmpl, &ctx, parents_flag, true, false, self.mode.as_deref(), content, self.dry_run)?;
 
             // External template + placeholders
             if !self.no_template {
-                let t_file = templater::resolve_template_for_input(target, self.template.as_deref(), legacy.extension_check)?;
-                templater::apply_template_and_placeholders(target, t_file.as_ref(), self.verbose)?;
+                templater::apply_template_and_placeholders(target, ext_template.as_ref(), self.verbose)?;
             }
 
             if self.open { ops::open_in_editor(target, self.editor.as_deref())?; }
@@ -225,10 +244,12 @@ impl Cli {
         force_override: bool,
             no_clobber_override: bool,
     ) -> Result<()> {
+        let parents_flag = self.parents || cfg.auto_create_parents;
+
         // Decide if directory
         let target_exists = target.exists();
         let treat_as_dir = if self.dir { true } else if self.file { false } else if target_exists && target.is_dir() { true } else if template_override.is_none() && target.extension().is_none() { true } else { false };
-        if treat_as_dir { ops::create_dir(&target, self.parents, mode_override, self.dry_run)?; return Ok(()); }
+        if treat_as_dir { ops::create_dir(&target, parents_flag, mode_override, self.dry_run)?; return Ok(()); }
 
         // Prompt if exists
         if target.exists() && target.is_file() && !self.dry_run {
@@ -242,19 +263,37 @@ impl Cli {
             }
         }
 
-        // Build template context
+        // Build template context + resolve explicit template
         let mut stdin_buf = String::new();
         if self.stdin { io::stdin().read_to_string(&mut stdin_buf).context("reading from stdin")?; }
-        let tmpl_name_or_ext = template_override.clone().or_else(|| target.extension().map(|e| e.to_string_lossy().to_string()));
-        let tmpl = tmpl_name_or_ext.as_ref().and_then(|key| cfg.get_template(key)).or_else(|| cfg.get_template("default"));
+
+        // Resolve external (file) template and config template
+        let explicit = template_override.as_deref();
+        let ext_template = if !no_template_override {
+            templater::resolve_template_for_input(&target, explicit, legacy.extension_check)?
+        } else { None };
+
+        let cfg_tmpl = if let Some(name) = explicit {
+            cfg.get_template(name)
+        } else {
+            let ext_key = target.extension().map(|e| e.to_string_lossy().to_string());
+            ext_key.as_ref().and_then(|k| cfg.get_template(k)).or_else(|| cfg.get_template("default"))
+        };
+
+        // If template explicitly requested but not found anywhere, error out
+        if let Some(name) = explicit {
+            if cfg_tmpl.is_none() && ext_template.is_none() {
+                return Err(MkError::TemplateNotFound(name.to_string()).into());
+            }
+        }
+
         let ctx = ContextVars::from_path(&target, cfg.author.as_deref());
         let content = if self.stdin { Some(stdin_buf.as_str()) } else { None };
 
-        ops::create_file(&target, tmpl, &ctx, self.parents, true, false, mode_override, content, self.dry_run)?;
+        ops::create_file(&target, cfg_tmpl, &ctx, parents_flag, true, false, mode_override, content, self.dry_run)?;
 
         if !no_template_override {
-            let t_file = templater::resolve_template_for_input(&target, template_override.as_deref(), legacy.extension_check)?;
-            templater::apply_template_and_placeholders(&target, t_file.as_ref(), self.verbose)?;
+            templater::apply_template_and_placeholders(&target, ext_template.as_ref(), self.verbose)?;
         }
 
         if open_override { ops::open_in_editor(&target, self.editor.as_deref())?; }

@@ -1,6 +1,5 @@
 // path: crates/mk/src/template.rs
 use std::path::Path;
-
 use chrono::Local;
 
 #[derive(Debug, Clone)]

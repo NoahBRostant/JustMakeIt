@@ -5,9 +5,17 @@ use anyhow::{Context, Result};
 use dirs::config_dir;
 use serde::{Deserialize, Serialize};
 
+fn default_true() -> bool { true }
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
+    #[serde(default)]
     pub author: Option<String>,
+    /// If true, mk will create missing parent directories automatically (like `mkdir -p`).
+    /// Can still be overridden per-invocation via `-p/--parents` (which always enables it).
+    #[serde(default = "default_true")]
+    pub auto_create_parents: bool,
+    #[serde(default)]
     pub templates: BTreeMap<String, Template>,
 }
 
@@ -44,7 +52,14 @@ impl Config {
 
     pub fn write_default(force: bool) -> Result<()> {
         let path = Self::default_path()?;
-        if let Some(parent) = path.parent() { fs::create_dir_all(parent)?; }
+        if let Some(parent) = path.parent() {
+            // Always create missing parent directories (quality-of-life default).
+            // This mirrors common shell usage expectations like `mkdir -p $(dirname file)`.
+            if !parent.exists() {
+                fs::create_dir_all(parent)
+                .with_context(|| format!("creating parents for {}", path.display()))?;
+            }
+        }
         if path.exists() && !force {
             anyhow::bail!("config exists: {} (use --force to overwrite)", path.display());
         }
@@ -62,7 +77,7 @@ impl Config {
     }
 
     fn default_with_builtin() -> Self {
-        let mut cfg = Self { author: None, templates: Default::default() };
+        let mut cfg = Self { author: None, auto_create_parents: default_true(), templates: Default::default() };
         for (k, v) in Self::builtin_templates() {
             cfg.templates.insert(k, v);
         }
