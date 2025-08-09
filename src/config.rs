@@ -6,6 +6,7 @@ use dirs::config_dir;
 use serde::{Deserialize, Serialize};
 
 fn default_true() -> bool { true }
+fn default_false() -> bool { false }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
@@ -15,6 +16,12 @@ pub struct Config {
     /// Can still be overridden per-invocation via `-p/--parents` (which always enables it).
     #[serde(default = "default_true")]
     pub auto_create_parents: bool,
+    #[serde(default = "default_false")]
+    pub extension_check: bool,
+    /// If true, mk will run the external placeholder stage (builtins + Lua) after writing files.
+    /// Set to false to skip `<{&KEY&}>` replacement without disabling external file templates.
+    #[serde(default = "default_true")]
+    pub apply_external_placeholders: bool,
     #[serde(default)]
     pub templates: BTreeMap<String, Template>,
 }
@@ -77,7 +84,7 @@ impl Config {
     }
 
     fn default_with_builtin() -> Self {
-        let mut cfg = Self { author: None, auto_create_parents: default_true(), templates: Default::default() };
+        let mut cfg = Self { author: None, auto_create_parents: default_true(), extension_check: default_false(), apply_external_placeholders: default_true(), templates: Default::default() };
         for (k, v) in Self::builtin_templates() {
             cfg.templates.insert(k, v);
         }
@@ -86,8 +93,7 @@ impl Config {
 
     fn builtin_templates() -> Vec<(String, Template)> {
         vec![
-            ("default".into(), Template { ext: None, mode: None, body: "{file_name}
-            ".into() }),
+            ("default".into(), Template { ext: None, mode: None, body: "".into() }),
             ("rs".into(), Template {
                 ext: Some("rs".into()), mode: None,
              body: r#"// {file_name} — created {date}

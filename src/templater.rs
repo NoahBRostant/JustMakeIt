@@ -47,13 +47,15 @@ pub fn resolve_template_for_input(path: &Path, explicit: Option<&str>, extension
     Ok(None)
 }
 
-pub fn apply_template_and_placeholders(path: &Path, template_file: Option<&PathBuf>, verbose: bool) -> Result<()> {
+pub fn apply_template_and_placeholders(path: &Path, template_file: Option<&PathBuf>, apply_placeholders: bool, verbose: bool) -> Result<()> {
     if let Some(tpl) = template_file {
         let data = fs::read_to_string(tpl).with_context(|| format!("reading template {}", tpl.display()))?;
         if verbose { eprintln!("Template applied: {}", tpl.display()); }
         fs::write(path, data).with_context(|| format!("writing {}", path.display()))?;
     }
     // placeholders
+    if !apply_placeholders { if verbose { eprintln!("Skipped placeholders for {}", path.display()); } return Ok(()); }
+    // proceed if enabled
     let mut map = placeholder::builtins_for(path);
     let lua = placeholder::lua_placeholders();
     map.extend(lua);

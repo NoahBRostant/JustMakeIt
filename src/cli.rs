@@ -129,6 +129,7 @@ impl Cli {
         let cfg = Config::load_default()?;
         let legacy = legacy_config::load();
         let parents_flag = self.parents || cfg.auto_create_parents;
+        let ext_check = cfg.extension_check && legacy.extension_check;
 
         if self.no_clobber && self.force {
             bail!("--no-clobber and --force are mutually exclusive");
@@ -199,14 +200,16 @@ impl Cli {
             // Resolve external (file) template and config template
             let explicit = self.template.as_deref();
             let ext_template = if !self.no_template {
-                templater::resolve_template_for_input(target, explicit, legacy.extension_check)?
+                templater::resolve_template_for_input(target, explicit, ext_check)?
             } else { None };
 
             let cfg_tmpl = if let Some(name) = explicit {
                 cfg.get_template(name)
-            } else {
+            } else if ext_check {
                 let ext_key = target.extension().map(|e| e.to_string_lossy().to_string());
-                ext_key.as_ref().and_then(|k| cfg.get_template(k)).or_else(|| cfg.get_template("default"))
+                ext_key.as_ref().and_then(|k| cfg.get_template(k))
+            } else {
+                None
             };
 
             // If template explicitly requested but not found anywhere, error out
@@ -223,7 +226,7 @@ impl Cli {
 
             // External template + placeholders
             if !self.no_template {
-                templater::apply_template_and_placeholders(target, ext_template.as_ref(), self.verbose)?;
+                templater::apply_template_and_placeholders(target, ext_template.as_ref(), cfg.apply_external_placeholders, self.verbose)?;
             }
 
             if self.open { ops::open_in_editor(target, self.editor.as_deref())?; }
@@ -245,6 +248,7 @@ impl Cli {
             no_clobber_override: bool,
     ) -> Result<()> {
         let parents_flag = self.parents || cfg.auto_create_parents;
+        let ext_check = cfg.extension_check && legacy.extension_check;
 
         // Decide if directory
         let target_exists = target.exists();
@@ -270,14 +274,16 @@ impl Cli {
         // Resolve external (file) template and config template
         let explicit = template_override.as_deref();
         let ext_template = if !no_template_override {
-            templater::resolve_template_for_input(&target, explicit, legacy.extension_check)?
+            templater::resolve_template_for_input(&target, explicit, ext_check)?
         } else { None };
 
         let cfg_tmpl = if let Some(name) = explicit {
             cfg.get_template(name)
-        } else {
+        } else if ext_check {
             let ext_key = target.extension().map(|e| e.to_string_lossy().to_string());
-            ext_key.as_ref().and_then(|k| cfg.get_template(k)).or_else(|| cfg.get_template("default"))
+            ext_key.as_ref().and_then(|k| cfg.get_template(k))
+        } else {
+            None
         };
 
         // If template explicitly requested but not found anywhere, error out
@@ -293,7 +299,7 @@ impl Cli {
         ops::create_file(&target, cfg_tmpl, &ctx, parents_flag, true, false, mode_override, content, self.dry_run)?;
 
         if !no_template_override {
-            templater::apply_template_and_placeholders(&target, ext_template.as_ref(), self.verbose)?;
+            templater::apply_template_and_placeholders(&target, ext_template.as_ref(), cfg.apply_external_placeholders, self.verbose)?;
         }
 
         if open_override { ops::open_in_editor(&target, self.editor.as_deref())?; }
