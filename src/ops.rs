@@ -123,7 +123,12 @@ pub fn open_in_editor(path: &Path, editor: Option<&str>) -> Result<()> {
     .map(|s| s.to_string())
     .or_else(|| std::env::var("VISUAL").ok())
     .or_else(|| std::env::var("EDITOR").ok())
-    .unwrap_or_else(|| "nano".to_string());
+    .unwrap_or_else(|| {
+        #[cfg(target_os="windows")]
+        { "notepad".to_string() }
+        #[cfg(not(target_os="windows"))]
+        { "nano".to_string() }
+    });
 
     let status = Command::new(ed)
     .arg(path)
