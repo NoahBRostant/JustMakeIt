@@ -1,6 +1,6 @@
 [package]
 name = "mk"
-version = "0.2.0"
+version = "2.0.0"
 edition = "2021"
 description = "Just Make It — fast file/dir creation from templates"
 license = "MIT"
