@@ -3,9 +3,11 @@ use std::{fs, path::{Path, PathBuf}};
 use anyhow::{Context, Result};
 use once_cell::sync::OnceCell;
 use crate::placeholder;
-use crate::legacy_config::mk_home;
 
-pub fn templates_dir() -> PathBuf { mk_home().join(".templates") }
+
+use dirs::config_dir;
+
+pub fn templates_dir() -> PathBuf { config_dir().unwrap_or_else(|| Path::new(".").to_path_buf()).join("mk").join("templates") }
 
 pub fn list_templates() -> Result<Vec<PathBuf>> {
     let dir = templates_dir();

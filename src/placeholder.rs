@@ -1,6 +1,7 @@
 // path: crates/mk/src/placeholder.rs
 use std::{collections::HashMap, path::Path, process::Command};
 use chrono::Local;
+use dirs::config_dir;
 use once_cell::sync::OnceCell;
 
 pub fn builtins_for(path: &Path) -> HashMap<String, String> {
@@ -15,11 +16,11 @@ pub fn builtins_for(path: &Path) -> HashMap<String, String> {
 }
 
 /// Execute an optional Lua script that prints lines like `KEY=VALUE`.
-/// Search order: ./mk_placeholders.lua, then ~/.mk/mk_placeholders.lua
+/// Search order: ./mk_placeholders.lua, then ~/.config/mk/mk_placeholders.lua
 pub fn lua_placeholders() -> HashMap<String, String> {
     let mut m = HashMap::new();
     let local = std::path::Path::new("./mk_placeholders.lua");
-    let home = crate::legacy_config::mk_home().join("mk_placeholders.lua");
+    let home = config_dir().unwrap_or_else(|| std::path::Path::new(".").to_path_buf()).join("mk").join("mk_placeholders.lua");
     let script = if local.exists() { local.to_path_buf() } else if home.exists() { home } else { return m };
 
     let out = Command::new("lua").arg(script).output();
