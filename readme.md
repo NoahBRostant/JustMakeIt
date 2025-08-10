@@ -59,7 +59,8 @@ mk init
 Or
 
 ```bash
-mk -p ~/.config/mk/templates ~/.config/mk/config.toml 
+# Create empty directories and files to populate
+mk -p ~/.config/mk/templates ~/.config/mk/config.toml -o
 ```
 
 ### Example config: `~/.config/mk/config.toml`
