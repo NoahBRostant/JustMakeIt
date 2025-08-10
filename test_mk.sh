@@ -3,11 +3,7 @@
 # Source the mk script to make the mk function available
 # Get the directory of the test script
 TEST_SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-MK_SCRIPT_PATH="$TEST_SCRIPT_DIR/mk.sh"
 CONFIG_FILE="$TEST_SCRIPT_DIR/mk.conf"
-
-source "$MK_SCRIPT_PATH" || { echo "Failed to source mk.sh from $MK_SCRIPT_PATH"; exit 1; }
-type mk >/dev/null 2>&1 || { echo "mk command not found after sourcing"; exit 1; }
 
 # Colors for output
 GREEN="\033[0;32m"
