@@ -38,8 +38,10 @@
 Using Cargo:
 
 ```bash
-# From this repo
-cargo install --path crates/mk
+# From git clone
+git clone https://github.com/NoahBRostant/JustMakeIt.git
+cd JustMakeIt
+cargo install --path ./
 
 # Or directly from Git
 cargo install --locked --git https://github.com/NoahBRostant/JustMakeIt mk
