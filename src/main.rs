@@ -4,7 +4,6 @@ mod config;
 mod template;
 mod ops;
 mod error;
-mod legacy_config;
 mod templater;
 mod placeholder;
 

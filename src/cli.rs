@@ -4,7 +4,7 @@ use std::{fs, io::{self, Read}, path::PathBuf};
 use anyhow::{bail, Context, Result};
 use clap::{Args, Parser, Subcommand};
 
-use crate::{config::Config, legacy_config, ops, template::ContextVars, templater, error::MkError};
+use crate::{config::Config, ops, template::ContextVars, templater, error::MkError};
 
 #[derive(Debug, Parser)]
 #[command(name = "mk", about = "Just Make It — fast file/dir creation from templates", version)]
@@ -37,7 +37,7 @@ pub struct Cli {
         #[arg(short = 'f', long)]
         file: bool,
 
-        /// Template name (file in ~/.mk/.templates) or extension (e.g. rs, py, md)
+        /// Template name (file in ~/.config/mk/templates) or extension (e.g. rs, py, md)
         #[arg(short = 't', long, value_name = "NAME|EXT")]
         template: Option<String>,
 
@@ -65,7 +65,7 @@ pub struct Cli {
         #[arg(short = 'l', long = "list", value_name = "FILE")]
         list_file: Option<PathBuf>,
 
-        /// List templates available in ~/.mk/.templates
+        /// List templates available in ~/.config/mk/templates
         #[arg(long = "list-templates")]
         list_templates: bool,
 
@@ -100,7 +100,7 @@ impl Cli {
         // Flags that don't require targets
         if self.list_templates {
             let list = templater::list_templates()?;
-            if list.is_empty() { println!("No templates in ~/.mk/.templates"); }
+            if list.is_empty() { println!("No templates in ~/.config/mk/templates"); }
             else {
                 println!("Available templates:");
                 for p in list { println!("  - {}", p.file_name().unwrap().to_string_lossy()); }
@@ -127,9 +127,8 @@ impl Cli {
         }
 
         let cfg = Config::load_default()?;
-        let legacy = legacy_config::load();
         let parents_flag = self.parents || cfg.auto_create_parents;
-        let ext_check = cfg.extension_check && legacy.extension_check;
+        let ext_check = cfg.extension_check;
 
         if self.no_clobber && self.force {
             bail!("--no-clobber and --force are mutually exclusive");
@@ -161,7 +160,7 @@ impl Cli {
                     else if arg == "-y" || arg == "--yes" { force_override = true; no_clobber_override = false; }
                     else if arg == "-n" || arg == "--no" { no_clobber_override = true; force_override = false; }
                 }
-                self.process_single(PathBuf::from(path_str), &cfg, &legacy, t_override, mode_override.as_deref(), open_override, no_tmpl_override, force_override, no_clobber_override)?;
+                self.process_single(PathBuf::from(path_str), &cfg, t_override, mode_override.as_deref(), open_override, no_tmpl_override, force_override, no_clobber_override)?;
             }
             return Ok(());
         }
@@ -239,7 +238,6 @@ impl Cli {
         &self,
         target: PathBuf,
         cfg: &Config,
-        legacy: &legacy_config::Legacy,
         template_override: Option<String>,
         mode_override: Option<&str>,
         open_override: bool,
@@ -248,7 +246,7 @@ impl Cli {
             no_clobber_override: bool,
     ) -> Result<()> {
         let parents_flag = self.parents || cfg.auto_create_parents;
-        let ext_check = cfg.extension_check && legacy.extension_check;
+        let ext_check = cfg.extension_check;
 
         // Decide if directory
         let target_exists = target.exists();
